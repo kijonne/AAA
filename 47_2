@@ -1,0 +1,254 @@
+# Лабораторная работа №47: Создание запросов к БД
+
+## Задание 5.1: Создание подключения к БД
+
+### 1. Создание проекта библиотеки
+1. Создайте новый проект типа "Class Library" в Visual Studio.
+2. Добавьте пакеты NuGet:
+   - Для MSSQL: `System.Data.SqlClient` или `Microsoft.Data.SqlClient`
+   - Для SQLite: `Microsoft.Data.Sqlite`
+   - Dapper: `Dapper`
+
+### 2. Создание интерфейса и классов подключения
+```csharp
+public interface IDbConnectionFactory
+{
+    IDbConnection CreateConnection();
+}
+
+public class MSSQLConnectionFactory : IDbConnectionFactory
+{
+    private readonly string _connectionString;
+
+    public MSSQLConnectionFactory(string connectionString)
+    {
+        _connectionString = connectionString;
+    }
+
+    public IDbConnection CreateConnection()
+    {
+        return new SqlConnection(_connectionString);
+    }
+}
+
+public class SQLiteConnectionFactory : IDbConnectionFactory
+{
+    private readonly string _connectionString;
+
+    public SQLiteConnectionFactory(string connectionString)
+    {
+        _connectionString = connectionString;
+    }
+
+    public IDbConnection CreateConnection()
+    {
+        return new SqliteConnection(_connectionString);
+    }
+}
+```
+
+### 3. Создание класса репозитория
+```csharp
+public class GamesRepository
+{
+    private readonly IDbConnection _connection;
+
+    public GamesRepository(IDbConnectionFactory connectionFactory)
+    {
+        _connection = connectionFactory.CreateConnection();
+    }
+
+    // Методы CRUD будут добавлены в следующем задании
+}
+```
+
+## Задание 5.2: Выполнение запросов к БД с использованием репозитория
+
+### 1. Добавление модели Game
+```csharp
+public class Game
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public string Developer { get; set; }
+    public DateTime ReleaseDate { get; set; }
+}
+```
+
+### 2. Реализация методов CRUD
+```csharp
+public class GamesRepository
+{
+    // ... предыдущий код ...
+
+    public IEnumerable<Game> GetAll()
+    {
+        return _connection.Query<Game>("SELECT * FROM Games");
+    }
+
+    public Game? GetById(int id)
+    {
+        return _connection.QueryFirstOrDefault<Game>(
+            "SELECT * FROM Games WHERE Id = @Id", new { Id = id });
+    }
+
+    public void Create(Game game)
+    {
+        _connection.Execute(
+            "INSERT INTO Games (Name, Developer, ReleaseDate) VALUES (@Name, @Developer, @ReleaseDate)",
+            game);
+    }
+
+    public void Update(Game game)
+    {
+        _connection.Execute(
+            "UPDATE Games SET Name = @Name, Developer = @Developer, ReleaseDate = @ReleaseDate WHERE Id = @Id",
+            game);
+    }
+
+    public void Delete(int id)
+    {
+        _connection.Execute(
+            "DELETE FROM Games WHERE Id = @Id", new { Id = id });
+    }
+}
+```
+
+### 3. Тестирование в клиентском приложении
+Создайте консольное приложение и протестируйте все методы репозитория.
+
+## Задание 5.3: Выполнение запросов к БД с использованием web-API
+
+### 1. Создание проекта Web API
+1. Создайте новый проект типа "ASP.NET Core Web API" (.NET 8)
+2. Добавьте ссылку на проект библиотеки
+
+### 2. Настройка сервисов
+```csharp
+// Program.cs
+builder.Services.AddSingleton<IDbConnectionFactory>(new MSSQLConnectionFactory("ваша_строка_подключения"));
+builder.Services.AddScoped<GamesRepository>();
+```
+
+### 3. Создание контроллера
+```csharp
+[ApiController]
+[Route("api/[controller]")]
+public class GamesController : ControllerBase
+{
+    private readonly GamesRepository _repository;
+
+    public GamesController(GamesRepository repository)
+    {
+        _repository = repository;
+    }
+
+    [HttpGet]
+    public ActionResult<IEnumerable<Game>> GetAll()
+    {
+        return Ok(_repository.GetAll());
+    }
+
+    [HttpGet("{id}")]
+    public ActionResult<Game> GetById(int id)
+    {
+        var game = _repository.GetById(id);
+        if (game == null) return NotFound();
+        return Ok(game);
+    }
+
+    [HttpPost]
+    public IActionResult Create(Game game)
+    {
+        _repository.Create(game);
+        return CreatedAtAction(nameof(GetById), new { id = game.Id }, game);
+    }
+
+    [HttpPut("{id}")]
+    public IActionResult Update(int id, Game game)
+    {
+        if (id != game.Id) return BadRequest();
+        _repository.Update(game);
+        return NoContent();
+    }
+
+    [HttpDelete("{id}")]
+    public IActionResult Delete(int id)
+    {
+        _repository.Delete(id);
+        return NoContent();
+    }
+}
+```
+
+## Задание 5.4: Выполнение запросов к БД с использованием сервиса
+
+### 1. Создание класса сервиса
+```csharp
+public class GamesService
+{
+    private readonly GamesRepository _repository;
+    private readonly ILogger<GamesService> _logger;
+
+    public GamesService(GamesRepository repository, ILogger<GamesService> logger)
+    {
+        _repository = repository;
+        _logger = logger;
+    }
+
+    public IEnumerable<Game> GetAll()
+    {
+        _logger.LogInformation("Getting all games");
+        return _repository.GetAll();
+    }
+
+    public Game? GetById(int id)
+    {
+        _logger.LogInformation($"Getting game with id {id}");
+        return _repository.GetById(id);
+    }
+
+    public void Create(Game game)
+    {
+        if (game == null) throw new ArgumentNullException(nameof(game));
+        if (string.IsNullOrEmpty(game.Name)) throw new ArgumentException("Name is required");
+        
+        _logger.LogInformation($"Creating new game: {game.Name}");
+        _repository.Create(game);
+    }
+
+    public void Update(Game game)
+    {
+        if (game == null) throw new ArgumentNullException(nameof(game));
+        if (string.IsNullOrEmpty(game.Name)) throw new ArgumentException("Name is required");
+        
+        _logger.LogInformation($"Updating game with id {game.Id}");
+        _repository.Update(game);
+    }
+
+    public void Delete(int id)
+    {
+        _logger.LogInformation($"Deleting game with id {id}");
+        _repository.Delete(id);
+    }
+}
+```
+
+### 2. Обновление Web API
+Обновите Program.cs и GamesController для использования сервиса вместо репозитория.
+
+## Ответы на контрольные вопросы
+
+8.1 Классы репозитория используются для инкапсуляции логики доступа к данным, предоставляя абстракцию над хранилищем данных.
+
+8.2 Классы сервиса используются для реализации бизнес-логики, валидации данных и координации работы между различными компонентами приложения.
+
+8.3 ORM (Object-Relational Mapping) используется для преобразования данных между реляционными базами данных и объектно-ориентированными языками программирования, упрощая работу с БД.
+
+8.4 У параметра можно указать:
+- Направление (Input, Output, InputOutput)
+- Тип данных
+- Размер (для строк и бинарных данных)
+- Значение по умолчанию
+- Имя параметра
+- Прецизионность и масштаб (для числовых типов)
