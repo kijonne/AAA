@@ -1,0 +1,64 @@
+-- 5.1 Получить выборку данных о книгах
+SELECT 
+    BookID, 
+    Title, 
+    AuthorLastName, 
+    AuthorFirstName, 
+    Price 
+FROM Books;
+
+-- 5.2 Получить выборку данных о составах заказов
+SELECT 
+    OrderID, 
+    BookID, 
+    Title, 
+    AuthorLastName, 
+    AuthorFirstName, 
+    Price, 
+    Quantity, 
+    (Price * Quantity) AS Cost 
+FROM OrderDetails
+INNER JOIN Books ON OrderDetails.BookID = Books.BookID;
+
+-- 5.3 Вывести номер заказа, дату и стоимость заказа
+SELECT 
+    OrderID, 
+    OrderDate, 
+    SUM(Price * Quantity) AS TotalCost 
+FROM OrderDetails 
+INNER JOIN Orders ON OrderDetails.OrderID = Orders.OrderID 
+GROUP BY OrderID, OrderDate 
+ORDER BY OrderDate DESC;
+
+-- 5.4 Получить код и логин заказчика с количеством заказов
+SELECT 
+    Customers.CustomerID, 
+    Customers.Login, 
+    COUNT(Orders.OrderID) AS OrderCount 
+FROM Customers 
+LEFT JOIN Orders ON Customers.CustomerID = Orders.CustomerID 
+GROUP BY Customers.CustomerID, Customers.Login;
+
+-- 5.5 Вывести информацию о заказах без составов
+SELECT * 
+FROM Orders 
+WHERE OrderID NOT IN (SELECT OrderID FROM OrderDetails);
+
+-- 5.6 Получить информацию о заказчиках с хотя бы одним заказом
+SELECT * 
+FROM Customers 
+WHERE CustomerID IN (SELECT DISTINCT CustomerID FROM Orders);
+
+-- 5.7 Получить фамилии и имена авторов и заказчиков
+SELECT 
+    AuthorLastName, 
+    AuthorFirstName, 
+    'Автор' AS Role 
+FROM Authors 
+UNION 
+SELECT 
+    CustomerLastName, 
+    CustomerFirstName, 
+    'Заказчик' AS Role 
+FROM Customers 
+ORDER BY AuthorLastName, AuthorFirstName;
