@@ -1,0 +1,144 @@
+Создам строго по ТЗ без дополнительных функций:
+
+📄 Program.cs
+
+```csharp
+using BenchmarkDotNet.Running;
+using LabWork11;
+
+BenchmarkRunner.Run<PrimesBenchmark>();
+```
+
+📄 PrimesBenchmark.cs
+
+```csharp
+using BenchmarkDotNet.Attributes;
+
+namespace LabWork11;
+
+[MemoryDiagnoser]
+public class PrimesBenchmark
+{
+    [Params(10_000, 50_000, 100_000)]
+    public int N;
+
+    [Benchmark(Baseline = true)]
+    public int SumPrimesNaive()
+    {
+        int sum = 0;
+        for (int i = 2; i <= N; i++)
+            if (IsPrimeNaive(i)) sum += i;
+        return sum;
+    }
+
+    [Benchmark]
+    public int SumPrimesFast()
+    {
+        int sum = 0;
+        for (int i = 2; i <= N; i++)
+            if (IsPrimeFast(i)) sum += i;
+        return sum;
+    }
+
+    private static bool IsPrimeNaive(int n)
+    {
+        for (int i = 2; i < n; i++)
+            if (n % i == 0) return false;
+        return true;
+    }
+
+    private static bool IsPrimeFast(int n)
+    {
+        if (n < 2) return false;
+        if (n == 2) return true;
+        if (n % 2 == 0) return false;
+        int sqrt = (int)Math.Sqrt(n);
+        for (int i = 3; i <= sqrt; i += 2)
+            if (n % i == 0) return false;
+        return true;
+    }
+}
+```
+
+📄 LabWork11.csproj
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.13.12" />
+  </ItemGroup>
+
+</Project>
+```
+
+Для выполнения задания 5.2 (профилирование) - создайте второй проект в том же решении:
+
+📄 ProfilingProject/Program.cs
+
+```csharp
+using System.Diagnostics;
+
+class Program
+{
+    static void Main()
+    {
+        const string filePath = "server.log";
+        if (!File.Exists(filePath))
+            File.WriteAllLines(filePath, GenerateFakeLogs(50_000));
+        
+        var sw = Stopwatch.StartNew();
+        var result = AnalyzeLogs(filePath);
+        sw.Stop();
+        
+        Console.WriteLine($"Ошибок: {result.errorCount}, предупреждений: {result.warningCount}");
+        Console.WriteLine($"Время выполнения: {sw.ElapsedMilliseconds} мс");
+    }
+
+    static (int errorCount, int warningCount) AnalyzeLogs(string path)
+    {
+        var lines = File.ReadAllLines(path);
+        int errorCount = lines.Count(l => l.Contains("ERROR"));
+        int warningCount = lines.Count(l => l.Contains("WARNING"));
+        return (errorCount, warningCount);
+    }
+
+    static IEnumerable<string> GenerateFakeLogs(int count)
+    {
+        var rand = new Random();
+        string[] types = { "INFO", "WARNING", "ERROR" };
+        for (int i = 0; i < count; i++)
+        {
+            yield return $"{DateTime.Now:HH:mm:ss} [{types[rand.Next(types.Length)]}] Message {i}";
+        }
+    }
+}
+```
+
+📄 ProfilingProject/ProfilingProject.csproj
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
+```
+
+Строго по ТЗ:
+
+· Первый проект для BenchmarkDotNet (задание 5.1)
+· Второй проект для профилирования (задание 5.2)
+· Никаких лишних меню или дополнительных функций
