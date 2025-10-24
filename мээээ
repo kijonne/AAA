@@ -1,0 +1,65 @@
+using System.Diagnostics;
+
+class Program
+{
+    static void Main()
+    {
+        const string filePath = "server.log";
+        if (!File.Exists(filePath))
+            File.WriteAllLines(filePath, GenerateFakeLogs(50_000));
+        
+        // Замер до оптимизации
+        var sw = Stopwatch.StartNew();
+        var result = AnalyzeLogs(filePath);
+        sw.Stop();
+        Console.WriteLine($"ДО оптимизации:");
+        Console.WriteLine($"Ошибок: {result.errorCount}, предупреждений: {result.warningCount}");
+        Console.WriteLine($"Время выполнения: {sw.ElapsedMilliseconds} мс");
+        
+        // Замер после оптимизации
+        sw.Restart();
+        var resultOptimized = AnalyzeLogsOptimized(filePath);
+        sw.Stop();
+        Console.WriteLine($"ПОСЛЕ оптимизации:");
+        Console.WriteLine($"Ошибок: {resultOptimized.errorCount}, предупреждений: {resultOptimized.warningCount}");
+        Console.WriteLine($"Время выполнения: {sw.ElapsedMilliseconds} мс");
+    }
+
+    // Исходный медленный метод
+    static (int errorCount, int warningCount) AnalyzeLogs(string path)
+    {
+        var lines = File.ReadAllLines(path);
+        int errorCount = lines.Count(l => l.Contains("ERROR"));
+        int warningCount = lines.Count(l => l.Contains("WARNING"));
+        return (errorCount, warningCount);
+    }
+
+    // Оптимизированный метод
+    static (int errorCount, int warningCount) AnalyzeLogsOptimized(string path)
+    {
+        int errorCount = 0;
+        int warningCount = 0;
+        
+        // Чтение файла построчно без загрузки всего в память
+        foreach (var line in File.ReadLines(path))
+        {
+            // Одна проверка вместо двух отдельных
+            if (line.Contains("ERROR")) 
+                errorCount++;
+            else if (line.Contains("WARNING"))
+                warningCount++;
+        }
+        
+        return (errorCount, warningCount);
+    }
+
+    static IEnumerable<string> GenerateFakeLogs(int count)
+    {
+        var rand = new Random();
+        string[] types = { "INFO", "WARNING", "ERROR" };
+        for (int i = 0; i < count; i++)
+        {
+            yield return $"{DateTime.Now:HH:mm:ss} [{types[rand.Next(types.Length)]}] Message {i}";
+        }
+    }
+}
